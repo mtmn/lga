@@ -1,0 +1,86 @@
+<!doctype html>
+<meta charset="utf-8">
+<style>
+  body { margin: 0; height: 100vh; display: flex; align-items: center;
+         justify-content: center; background: #101014; overflow: hidden; }
+  canvas { image-rendering: pixelated; image-rendering: crisp-edges;
+           background: #000; }
+</style>
+
+<canvas id="c"></canvas>
+
+<script>
+const SHADE = new Uint8Array(16);
+for (let s = 0; s < 16; s++) {
+  const pop = (s & 1) + ((s >> 1) & 1) + ((s >> 2) & 1) + ((s >> 3) & 1);
+  SHADE[s] = Math.min(255, 64 * pop);
+}
+
+let wasm, W, H, cellsPtr;
+let off, offCtx, img;
+
+const GRID = 1000;          // cells per side
+const DENSITY = 0.12;       // background gas density
+const BURST = 0.75;         // dense square density
+const STEPS_PER_FRAME = 2;
+
+const c = document.getElementById("c"), ctx = c.getContext("2d");
+ctx.imageSmoothingEnabled = false;
+
+async function loadWasm() {
+  const url = "lga.wasm";
+  if (WebAssembly.instantiateStreaming) {
+    try { return await WebAssembly.instantiateStreaming(fetch(url), {}); }
+    catch (e) { /* file:// serves the wrong MIME type; fall through */ }
+  }
+  const buf = await (await fetch(url)).arrayBuffer();
+  return await WebAssembly.instantiate(buf, {});
+}
+
+function setup() {
+  const scale = 1;
+  const seed = (Math.random() * 4294967296) >>> 0;
+  wasm.init(GRID, GRID, seed, DENSITY, BURST);
+
+  W = wasm.width();
+  H = wasm.height();
+
+  c.width = W * scale;
+  c.height = H * scale;
+
+  off = document.createElement("canvas");
+  off.width = W; off.height = H;
+  offCtx = off.getContext("2d");
+  img = offCtx.createImageData(W, H);
+
+  cellsPtr = wasm.cells();
+}
+
+function render() {
+  const bytes = new Uint8Array(wasm.memory.buffer, cellsPtr, W * H);
+  const data = img.data;
+  for (let i = 0, j = 0; i < W * H; i++, j += 4) {
+    const g = SHADE[bytes[i]];
+    data[j] = data[j + 1] = data[j + 2] = g;
+    data[j + 3] = 255;
+  }
+  offCtx.putImageData(img, 0, 0);
+  ctx.clearRect(0, 0, c.width, c.height);
+  ctx.drawImage(off, 0, 0, W, H, 0, 0, c.width, c.height);
+}
+
+function loop() {
+  for (let k = 0; k < STEPS_PER_FRAME; k++) wasm.step();
+  cellsPtr = wasm.cells();
+  render();
+  requestAnimationFrame(loop);
+}
+
+(async () => {
+  ({ instance: wasm } = await loadWasm());
+  wasm = wasm.exports;
+  setup();
+  render();
+  requestAnimationFrame(loop);
+})();
+</script>
