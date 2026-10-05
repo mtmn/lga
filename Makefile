@@ -1,15 +1,23 @@
 VIDEO  := lga-2000.mp4
+WEBM   := lga-2000.webm
 FRAMES ?= 600
 # make LGA_FLAGS="--seed 42 --gas 0.2"
 LGA_FLAGS ?=
 
 WEB := lga.wasm
 
-.PHONY: all video web serve help check clean
+.PHONY: all video webm web serve help check clean
 
 all: video
 
 video: $(VIDEO)
+
+# VP9, crf 0 to 63 (higher is smaller)
+webm: $(WEBM)
+
+$(WEBM): $(VIDEO)
+	ffmpeg -y -v warning -i $< -c:v libvpx-vp9 -b:v 0 -crf 44 -row-mt 1 \
+		-pix_fmt yuv420p $@
 
 $(VIDEO): lga.janet
 	janet lga.janet --frames $(FRAMES) $(LGA_FLAGS) $@
