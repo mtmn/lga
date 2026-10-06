@@ -1,0 +1,29 @@
+- lga.janet, Janet script that renders a video with ffmpeg
+- lga.c, C program compiled to WebAssembly
+
+    make
+
+Renders lga-2000.mp4, a 600 frame video of a 1000 by 1000 cell grid.
+
+# Requirements
+
+- Janet (tested with 1.42)
+- ffmpeg with libx264
+
+# Build
+
+    make                  # render lga-2000.mp4 with default options
+    make help             # show all options
+    make check            # confirm janet and ffmpeg are installed
+    make clean            # remove the video and the wasm build
+
+You can pass options through the LGA_FLAGS variable:
+
+    make LGA_FLAGS="--seed 42 --gas 0.2" video
+    make LGA_FLAGS="--width 500 --height 500 --frames 300" video
+
+# Sources
+
+- Wikipedia pages "Lattice gas automaton" and "HPP model"
+- Frisch, Hasslacher and Pomeau, 1986, which describes the hexagonal FHP
+  variant that restores isotropy
